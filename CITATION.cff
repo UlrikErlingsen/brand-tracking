@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using this metadata. The TrackSignal name is informally screened, not legally cleared."
+title: "TrackSignal: uncertainty-aware brand tracking"
+type: software
+authors:
+  - family-names: Erlingsen
+    given-names: Ulrik
+version: 1.0.0
+date-released: 2026-07-17
+license: AGPL-3.0-or-later
+repository-code: "https://github.com/UlrikErlingsen/brand-tracking"
+abstract: "An open, local-first application for separate brand-tracking estimates and uncertainty-aware wave, brand, and segment contrasts."

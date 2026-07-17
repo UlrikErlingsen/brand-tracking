@@ -1,0 +1,3 @@
+respondent_id,wave,segment,brand,metric,metric_kind,family,value,weight,practical_threshold,measurement_source
+R001,Wave 1,Segment A,Brand A,Awareness,binary,Funnel,1,1.0,0.03,Single survey item; add the questionnaire/item reference
+R001,Wave 1,Segment A,Brand B,Awareness,binary,Funnel,0,1.0,0.03,Single survey item; add the questionnaire/item reference

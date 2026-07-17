@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-labelledby="title desc">
+  <title id="title">TrackSignal mark</title>
+  <desc id="desc">Three tracking waves crossed by a measured signal with an uncertainty interval.</desc>
+  <rect width="96" height="96" rx="24" fill="#173C3A"/>
+  <g fill="none" stroke="#83D2B4" stroke-width="3" opacity=".55">
+    <circle cx="48" cy="48" r="30"/><circle cx="48" cy="48" r="19"/>
+  </g>
+  <path d="M16 57h14l8-18 10 28 11-38 8 28h13" fill="none" stroke="#F8F5ED" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M59 21v16M54 21h10M54 37h10" fill="none" stroke="#F2C66D" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="48" cy="48" r="4" fill="#D95B40"/>
+</svg>
