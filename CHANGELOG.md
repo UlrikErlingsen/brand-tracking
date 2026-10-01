@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.1.0 — 2026-10-01
+
+Signal brand refresh and Signal Hub entry point. The analysis, statistics, data contract and exports are unchanged.
+
+### Brand
+
+- Display name written **Track Signal** (with a space) in the app, README, docs, launchers and metadata. Package, file and environment-variable names stay `tracksignal` / `TRACKSIGNAL_*`. The name screen still covers the exact string “TrackSignal” only; no new clearance is claimed.
+- The app uses the shared `signal_theme` module (Organic Signal design, Brand family colour `#b2622d`, Figtree): sidebar lockup, masthead, hero, cards, notes, footer, Plotly template and the mark as favicon replace the pasted styles.
+- New banner, social preview and marks in `assets/`; the old banner SVG is removed. `.streamlit/config.toml` uses the family colours.
+- README follows the Signal template; bug-report and feature-request issue templates added.
+
+### Signal Hub contract
+
+- `tracksignal.ui` exposes `APP_INFO` and `render()`, so Signal Hub can embed the app; `app.py` is now a thin standalone entry point.
+- All session-state and widget keys are namespaced `track:` (including the page selector).
+- `streamlit` and `plotly` moved to a `ui` extra (also in `test`); the analysis core installs without them. `requirements.txt` still lists everything.
+- New tests: no Streamlit/Plotly import outside `tracksignal.ui`, `render()` runs from a script without a page config, and every widget key is namespaced.
+
 ## 1.0.0 — 2026-07-17
 
 First release, published as **TrackSignal** (never released under any earlier working name).
