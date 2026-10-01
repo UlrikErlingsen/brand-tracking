@@ -22,3 +22,6 @@ fileWatcherType = "none"
 
 [browser]
 gatherUsageStats = false
+
+[client]
+toolbarMode = "viewer"

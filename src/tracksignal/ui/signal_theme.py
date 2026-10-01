@@ -149,7 +149,10 @@ def _css(key: str) -> str:
   --sg-a200:{f['200']}; --sg-a300:{f['300']}; --sg-a600:{f['600']}; --sg-a700:{f['700']}; --sg-a800:{f['800']};
   --sg-r:28px;
 }}
-html, body, [class*="css"], .stApp, button, input, textarea, select {{ font-family:'Figtree',system-ui,sans-serif; }}
+html, body, .stApp, .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6, .stApp p, .stApp li,
+.stApp label, .stApp button, .stApp input, .stApp textarea, .stApp select, .stApp [data-baseweb], .stApp td, .stApp th,
+[data-testid="stMarkdownContainer"], [data-testid="stMetricValue"], [data-testid="stMetricLabel"] {{
+  font-family:'Figtree',system-ui,sans-serif !important; }}
 [data-testid="stAppViewContainer"] {{ background:var(--sg-bg); color:var(--sg-text); }}
 [data-testid="stHeader"] {{ background:color-mix(in srgb, var(--sg-bg) 85%, transparent); }}
 .block-container {{ max-width:1240px; padding-top:4.4rem; padding-bottom:4rem; }}
