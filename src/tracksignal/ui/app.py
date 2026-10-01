@@ -137,7 +137,7 @@ def page_welcome() -> None:
             "auditable exports",
         ],
     )
-    st.caption(f"**Name status:** {NAME_NOTE}")
+    sig.note("muted", f"**Name status:** {NAME_NOTE}")
     sig.cards(
         [
             (
@@ -343,7 +343,7 @@ def page_dashboard() -> None:
     )
     if kind == "binary":
         fig.update_xaxes(range=[0, 1], tickformat=".0%")
-    st.plotly_chart(fig, width="stretch", key=k("dashboard_chart"))
+    sig.chart(NS, fig, key=k("dashboard_chart"))
     st.caption(f"Interval method: {selected['interval_method'].iloc[0]}. Error bars are {(1 - 0.05) * 100:.0f}% confidence intervals.")
     st.markdown("### Complete profile—still separate metrics")
     profile = summary.estimates[

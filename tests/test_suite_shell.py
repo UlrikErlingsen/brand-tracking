@@ -38,6 +38,7 @@ def test_app_uses_shared_signal_theme_instead_of_pasted_styles() -> None:
     theme = (UI / "signal_theme.py").read_text(encoding="utf-8")
     assert 'st.set_page_config(**sig.page_config("track"))' in standalone
     assert "sig.apply(NS)" in ui_source
+    assert "st.plotly_chart(" not in ui_source  # charts go through sig.chart (template + theme=None)
     assert "<style>" not in standalone + ui_source
     for old_colour in ("#173c3a", "#d95b40", "#83d2b4", "#f2c66d", "#17322e", "#102c2a"):
         assert old_colour not in (standalone + ui_source).lower()
