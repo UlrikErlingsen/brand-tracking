@@ -334,6 +334,7 @@ def page_dashboard() -> None:
         )
     )
     fig.update_layout(
+        template=sig.template(NS),
         title=f"{metric} · {wave} · {segment}",
         xaxis_title="Proportion" if kind == "binary" else "Mean on original scale",
         yaxis_title="",

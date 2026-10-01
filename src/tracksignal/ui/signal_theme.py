@@ -132,8 +132,25 @@ def plotly_template(key: str):
         margin=dict(l=8, r=8, t=48, b=8),
     )
     pio.templates["signal"] = t
+    pio.templates[f"signal-{key}"] = t
     pio.templates.default = "signal"
     return t
+
+
+def template(key: str) -> str:
+    """Per-app Plotly template name. Pass it to every figure (`template=sig.template(key)` in px calls, or
+    `fig.update_layout(template=sig.template(key))`): the process-wide default set by apply() is shared by every
+    session, so inside Signal Hub two apps open at once could otherwise borrow each other's colours."""
+    import plotly.io as pio
+
+    if f"signal-{key}" not in pio.templates:
+        plotly_template(key)
+    return f"signal-{key}"
+
+
+def roles(key: str) -> dict:
+    """Semantic chart colours for one app (ROLES with highlight = the app's family 600). Prefer this over ROLES."""
+    return {**ROLES, "highlight": app(key)["fam"]["600"]}
 
 
 # ── CSS ──────────────────────────────────────────────────────────────────────
@@ -239,6 +256,7 @@ a {{ color:var(--sg-a700); }} a:hover {{ color:var(--sg-a800); }}
 .sg-note.info {{ background:{c['info_bg']}; color:{c['info_text']}; }}
 .sg-note.warn {{ background:{c['warn_bg']}; color:{c['warn_text']}; }}
 .sg-note.boundary {{ background:var(--sg-paper); color:var(--sg-muted); }}
+.sg-note.muted {{ padding:.2rem 0; background:transparent; color:var(--sg-muted); font-size:.82rem; }}
 .sg-foot {{ margin-top:3.2rem; display:flex; flex-wrap:wrap; gap:.5rem; color:var(--sg-muted); font-size:.8rem; }}
 .sg-foot i {{ color:var(--sg-a600); font-style:normal; }}
 @media (max-width:760px) {{ .sg-mast .sg-pills {{ display:none; }} .sg-hero {{ border-radius:28px; }} .block-container {{ padding-top:3.5rem; }} }}
@@ -296,9 +314,12 @@ def header(kicker: str, title: str, subtitle: str = "") -> None:
 
 
 def note(kind: str, markdown_text: str) -> None:
-    """kind: info | warn | boundary. Accepts **bold** markdown via Streamlit, so render with st.markdown inside."""
+    """kind: info | warn | boundary | muted (small print). Supports **bold**, `code` and [links](https://...)."""
     import re
     html = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", escape(markdown_text))
+    html = re.sub(r"`([^`]+)`", r"<code>\1</code>", html)
+    html = re.sub(r"\[([^\]]+)\]\((https?://[^)\s]+)\)",
+                  r'<a href="\2" target="_blank" rel="noopener noreferrer">\1</a>', html)
     st.markdown(f'<div class="sg-note {kind}"><div>{html}</div></div>', unsafe_allow_html=True)
 
 
