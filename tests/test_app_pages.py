@@ -7,6 +7,7 @@ from streamlit.testing.v1 import AppTest
 
 ROOT = Path(__file__).parents[1]
 APP = str(ROOT / "app.py")
+UI_SOURCE = ROOT / "src" / "tracksignal" / "ui" / "app.py"
 EXAMPLES = ROOT / "examples"
 PAGES = [
     "Welcome",
@@ -33,10 +34,10 @@ def test_every_page_renders_with_fictional_demo(page: str) -> None:
 def test_welcome_preserves_product_boundaries_and_name_status() -> None:
     app = AppTest.from_file(APP, default_timeout=120)
     app.run()
-    body = "\n".join(str(markdown.value) for markdown in app.markdown)
+    body = "\n".join(str(item.value) for item in [*app.markdown, *app.caption])
     assert "universal brand-equity score" in body
-    assert "MeasureSignal" in body
-    assert "PositionSignal" in body
+    assert "Measure Signal" in body
+    assert "Position Signal" in body
     assert "not legally cleared" in body
     assert "not a trademark opinion" in body
 
@@ -49,12 +50,12 @@ def test_wave_contrast_runs_from_demo() -> None:
     button.click().run()
 
     assert not app.exception, [error.value for error in app.exception]
-    assert app.session_state["last_contrast"] is not None
-    assert not app.session_state["last_contrast"].contrasts.empty
+    assert app.session_state["track:last_contrast"] is not None
+    assert not app.session_state["track:last_contrast"].contrasts.empty
 
 
 def test_pairing_requires_explicit_confirmation_in_the_ui() -> None:
-    source = Path(APP).read_text(encoding="utf-8")
+    source = UI_SOURCE.read_text(encoding="utf-8")
     assert "paired_ids=panel_ids" in source
     assert "paired_ids=same_respondents" in source
     assert '"Respondent IDs are stable panel IDs across waves"' in source
@@ -69,13 +70,13 @@ def test_pairing_requires_explicit_confirmation_in_the_ui() -> None:
 def test_in_app_demo_matches_downloadable_and_committed_demo() -> None:
     app = AppTest.from_file(APP, default_timeout=120)
     app.run()
-    session_demo = app.session_state["raw_data"]
+    session_demo = app.session_state["track:raw_data"]
     committed = pd.read_csv(EXAMPLES / "tracksignal-fictional-tracker.csv")
     pd.testing.assert_frame_equal(
         session_demo.reset_index(drop=True), committed.reset_index(drop=True), check_dtype=False
     )
     # The download button must use the same generator call as the in-app demo: no divergent
     # respondents_per_wave override anywhere in the app.
-    source = Path(APP).read_text(encoding="utf-8")
+    source = UI_SOURCE.read_text(encoding="utf-8")
     assert "respondents_per_wave" not in source
     assert "dataframe_csv_bytes(_demo())" in source

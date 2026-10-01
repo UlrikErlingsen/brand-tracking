@@ -11,7 +11,12 @@ NEUTRAL_ORIGINALITY = (
 
 
 def _product_text() -> str:
-    paths = [ROOT / "app.py", ROOT / "README.md", *sorted((ROOT / "docs").glob("*.md"))]
+    paths = [
+        ROOT / "app.py",
+        ROOT / "src" / "tracksignal" / "ui" / "app.py",
+        ROOT / "README.md",
+        *sorted((ROOT / "docs").glob("*.md")),
+    ]
     return "\n".join(path.read_text(encoding="utf-8") for path in paths)
 
 
