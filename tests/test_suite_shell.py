@@ -50,26 +50,39 @@ def test_app_uses_shared_signal_theme_instead_of_pasted_styles() -> None:
 
 def test_readme_matches_suite_information_architecture() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    required = [
-        "assets/tracksignal-banner.svg",
-        "Open brand-tracking evidence",
+    # Signal README template order: readers find the same section in the same place in every repo.
+    sections = [
         "## Read this first",
-        "## Try the fictional demo in three minutes",
+        "## Scope",
+        "## Try the demo in three minutes",
         "## Data contract",
-        "## Methods and decision language",
-        "## Evidence pack",
+        "## Analysis contract",
+        "## Methods",
+        "## Decision statuses",
+        "## Exports",
         "## Run locally",
         "## Privacy",
-        "## Development checks",
-        "## Relationship to the Signal suite",
-        "## Academic independence and originality",
-        "## License",
+        "## No install? Give this file to an AI",
+        "## Development",
+        "## Where this fits in Signal",
+        "## References",
+        "## Originality and license",
     ]
-    for text in required:
-        assert text in readme
+    positions = [readme.find(f"\n{heading}\n") for heading in sections]
+    assert all(position >= 0 for position in positions), dict(zip(sections, positions, strict=True))
+    assert positions == sorted(positions)
+    assert readme.startswith('<p align="center">\n  <img src="assets/tracksignal-banner.png"')
+    assert "assets/tracksignal-banner.svg" not in readme
+    assert "Signal-Brand-b2622d" in readme  # family badge in the Brand 600 colour
+    assert "github.com/UlrikErlingsen/brand-tracking/actions" in readme  # tests badge
+    assert "Open brand-tracking evidence" in readme
+    assert "**Track Signal**" in readme
+    assert '<img src="assets/tracksignal-mark-64.png"' in readme  # suite footer
+    assert "Creator Signal" not in readme
     assert "does **not** manufacture a universal" in readme
     assert "not legal clearance or a trademark opinion" in readme
-    assert "github.com/UlrikErlingsen/brand-tracking/actions" not in readme
+    for path in ("assets/tracksignal-banner.png", "assets/tracksignal-mark-64.png", "assets/tracksignal-social.png"):
+        assert (ROOT / path).exists()
 
 
 def test_runtime_scaffolding_is_private_and_health_checked() -> None:

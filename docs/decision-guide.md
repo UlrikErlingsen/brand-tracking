@@ -21,6 +21,6 @@
 
 ## What to do next
 
-Treat a clear movement as a prompt for investigation, not a ready-made story. Reconcile it with fieldwork, sample composition, questionnaire, competitor activity, distribution, price, product, media, service, and external events. Use ExperimentSignal or another credible identification design for causal claims.
+Treat a clear movement as a prompt for investigation, not a ready-made story. Reconcile it with fieldwork, sample composition, questionnaire, competitor activity, distribution, price, product, media, service, and external events. Use Experiment Signal or another credible identification design for causal claims.
 
-If several relationship constructs move together, inspect MeasureSignal evidence before comparing scores across waves. TrackSignal can track a prespecified attribute-ownership item, but association structure and competitive positioning belong in PositionSignal rather than stretching this tracker into a perceptual-map tool.
+If several relationship constructs move together, inspect Measure Signal evidence before comparing scores across waves. Track Signal can track a prespecified attribute-ownership item, but association structure and competitive positioning belong in Position Signal rather than stretching this tracker into a perceptual-map tool.

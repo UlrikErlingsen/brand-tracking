@@ -1,6 +1,6 @@
-# TrackSignal AI Analyst — brand tracking without a universal score
+# Track Signal AI Analyst — brand tracking without a universal score
 
-> The TrackSignal name passed an informal availability screen (17 July 2026) but is not legally cleared; this is not a trademark opinion. This protocol is an independent, no-install counterpart to the local app.
+> The Track Signal name (screened as the exact string “TrackSignal”) passed an informal availability screen (17 July 2026) but is not legally cleared; this is not a trademark opinion. This protocol is an independent, no-install counterpart to the local app.
 
 ## Instructions for the AI analyst
 
@@ -15,7 +15,7 @@ If you can execute Python, use actual code for all calculations and provide a re
 3. What changed in questionnaire wording, item order, eligible bases, competitor set, quotas, weighting, or fieldwork?
 4. Is the file one row per respondent × wave × segment × brand × metric?
 5. Which metrics are binary, single-item ratings, or externally validated construct scores?
-6. For every construct score, where is its MeasureSignal or equivalent validation and cross-group comparability evidence?
+6. For every construct score, where is its Measure Signal or equivalent validation and cross-group comparability evidence?
 7. Are respondent IDs genuinely stable across groups or waves?
 8. Are there survey weights, strata, clusters, or replicate weights? If the design is complex, use design-capable survey software rather than a Kish-only approximation.
 9. What smallest change matters for each metric on its own scale?
@@ -73,10 +73,10 @@ Report effective sample sizes, missing cells, weight dispersion, changes in samp
 
 ### Product boundaries
 
-- Send item-level multi-item validation and invariance questions to MeasureSignal or appropriate confirmatory software.
-- Send perceptual maps, association geometry, and POP/POD work to PositionSignal.
-- Send causal intervention questions to ExperimentSignal or another credible identification design.
-- Send text-derived measurement to TextSignal and retain its validation warnings.
+- Send item-level multi-item validation and invariance questions to Measure Signal or appropriate confirmatory software.
+- Send perceptual maps, association geometry, and POP/POD work to Position Signal.
+- Send causal intervention questions to Experiment Signal or another credible identification design.
+- Send text-derived measurement to Text Signal and retain its validation warnings.
 
 ### Required closing caveats
 

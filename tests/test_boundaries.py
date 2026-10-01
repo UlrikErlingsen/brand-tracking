@@ -37,7 +37,8 @@ def test_exact_product_and_package_name_are_consistent() -> None:
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     assert 'name = "tracksignal"' in pyproject
     assert f'version = "{__version__}"' in pyproject
-    assert "TrackSignal" in (ROOT / "README.md").read_text(encoding="utf-8")
+    # Display name has a space; technical identifiers (package, files, env vars) stay "tracksignal".
+    assert "Track Signal" in (ROOT / "README.md").read_text(encoding="utf-8")
     # Built by concatenation so a repository-wide grep for the old working name stays clean.
     old_name = "Pulse" + "Signal"
     assert old_name not in _product_text()

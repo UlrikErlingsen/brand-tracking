@@ -1,6 +1,6 @@
 # Contributing
 
-Contributions should preserve TrackSignal’s central boundaries: separate interpretable metrics, uncertainty visible beside estimates, no universal brand-equity score, no causal claims from descriptive tracking, and no undocumented multi-item constructs.
+Contributions should preserve Track Signal’s central boundaries: separate interpretable metrics, uncertainty visible beside estimates, no universal brand-equity score, no causal claims from descriptive tracking, and no undocumented multi-item constructs.
 
 Before submitting a change:
 

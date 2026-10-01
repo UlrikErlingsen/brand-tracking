@@ -2,7 +2,7 @@
 
 ## Unit of observation
 
-Use one row per respondent × wave × segment × brand × metric. A respondent may evaluate several brands and metrics in a wave. The exact key must remain unique; TrackSignal will not silently average repeated records.
+Use one row per respondent × wave × segment × brand × metric. A respondent may evaluate several brands and metrics in a wave. The exact key must remain unique; Track Signal will not silently average repeated records.
 
 ## Column roles
 
@@ -28,7 +28,7 @@ Binary funnel metrics should use a stable eligible base. For example, loyalty am
 
 ## Construct scores
 
-Item-level attachment, reputation, trust, or quality scales belong in MeasureSignal or another documented measurement workflow. TrackSignal expects the resulting score plus a measurement-evidence reference. It does not assess factor structure, reliability, validity, scoring invariance, or item drift.
+Item-level attachment, reputation, trust, or quality scales belong in Measure Signal or another documented measurement workflow. Track Signal expects the resulting score plus a measurement-evidence reference. It does not assess factor structure, reliability, validity, scoring invariance, or item drift.
 
 ## Weights and sample design
 
@@ -36,7 +36,7 @@ Weights must be finite and positive. The current release uses Kish effective sam
 
 ## Longitudinal IDs
 
-Use the same respondent ID across waves only when it is the same person. TrackSignal never pairs on overlapping IDs by itself: paired analysis requires you to confirm explicitly (a checkbox in the app, `paired_ids=True` in the API) that IDs are stable and identify the same people. Recycled panel IDs, household IDs, serial IDs reissued each wave, or unstable device identifiers would otherwise create false pairing, so do not confirm pairing unless the panel design genuinely guarantees stable IDs. When pairing is used, unmatched respondents are dropped from the paired rows and the app reports how many.
+Use the same respondent ID across waves only when it is the same person. Track Signal never pairs on overlapping IDs by itself: paired analysis requires you to confirm explicitly (a checkbox in the app, `paired_ids=True` in the API) that IDs are stable and identify the same people. Recycled panel IDs, household IDs, serial IDs reissued each wave, or unstable device identifiers would otherwise create false pairing, so do not confirm pairing unless the panel design genuinely guarantees stable IDs. When pairing is used, unmatched respondents are dropped from the paired rows and the app reports how many.
 
 ## Questionnaire and fieldwork continuity
 

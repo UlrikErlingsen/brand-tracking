@@ -1,4 +1,4 @@
-"""User-facing errors raised by TrackSignal."""
+"""User-facing errors raised by Track Signal."""
 
 from __future__ import annotations
 
@@ -12,8 +12,8 @@ def friendly_message(exc: Exception) -> str:
     if isinstance(exc, DataProblem):
         return str(exc)
     if isinstance(exc, ValueError):
-        return f"TrackSignal could not complete that step: {exc}"
+        return f"Track Signal could not complete that step: {exc}"
     return (
-        "TrackSignal could not complete that step. Check the data contract and try again. "
+        "Track Signal could not complete that step. Check the data contract and try again. "
         "Set TRACKSIGNAL_DEBUG=1 before launch if you need technical details."
     )

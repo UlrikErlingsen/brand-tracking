@@ -1,6 +1,6 @@
 cff-version: 1.2.0
-message: "If you use this software, please cite it using this metadata. The TrackSignal name is informally screened, not legally cleared."
-title: "TrackSignal: uncertainty-aware brand tracking"
+message: "If you use this software, please cite it using this metadata. The Track Signal name is informally screened, not legally cleared."
+title: "Track Signal: uncertainty-aware brand tracking"
 type: software
 authors:
   - family-names: Erlingsen

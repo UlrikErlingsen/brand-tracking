@@ -163,7 +163,7 @@ def validate_tracking_data(frame: pd.DataFrame, contract: TrackingContract) -> T
     ]
     if missing_construct_sources:
         raise DataProblem(
-            "Construct scores require a measurement-evidence reference from MeasureSignal or another documented "
+            "Construct scores require a measurement-evidence reference from Measure Signal or another documented "
             "validation workflow: " + ", ".join(missing_construct_sources)
         )
 
@@ -176,7 +176,7 @@ def validate_tracking_data(frame: pd.DataFrame, contract: TrackingContract) -> T
         )
 
     if clean["brand"].nunique() < 2:
-        raise DataProblem("TrackSignal needs at least two brands for a comparative tracker.")
+        raise DataProblem("Track Signal needs at least two brands for a comparative tracker.")
     if clean["wave"].nunique() < 1 or clean["metric"].nunique() < 1:
         raise DataProblem("The contract needs at least one wave and one metric.")
 
@@ -234,7 +234,7 @@ def validate_tracking_data(frame: pd.DataFrame, contract: TrackingContract) -> T
             "(“DETECTED — NO PRACTICAL THRESHOLD DECLARED”); it cannot label a change as practically clear."
         )
     warnings.append(
-        "TrackSignal reports metrics separately. It does not calculate a universal brand-equity score or infer causality."
+        "Track Signal reports metrics separately. It does not calculate a universal brand-equity score or infer causality."
     )
 
     summary = {

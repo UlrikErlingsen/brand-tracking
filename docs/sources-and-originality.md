@@ -2,7 +2,7 @@
 
 ## Originality boundary
 
-TrackSignal is an independent implementation. Its code, interface, synthetic data, examples, analysis contract, status rules, warnings, and documentation were written for this project. It does not reproduce lecture slides, notes, cases, exercises, diagrams, assessment material, datasets, questionnaire wording, or institution-specific frameworks; general topics encountered in education only define the problem domain.
+Track Signal is an independent implementation. Its code, interface, synthetic data, examples, analysis contract, status rules, warnings, and documentation were written for this project. It does not reproduce lecture slides, notes, cases, exercises, diagrams, assessment material, datasets, questionnaire wording, or institution-specific frameworks; general topics encountered in education only define the problem domain.
 
 General topics such as awareness, associations, loyalty, brand trust, measurement, confidence intervals, and survey tracking define the problem domain. Public scholarship informs the boundaries; it does not supply copied app content.
 
@@ -13,7 +13,7 @@ General topics such as awareness, associations, loyalty, brand trust, measuremen
 - Netemeyer, R. G., Krishnan, B., Pullig, C., Wang, G., Yagci, M., Dean, D., Ricks, J., & Wirth, F. (2004). Developing and validating measures of facets of customer-based brand equity. *Journal of Business Research, 57*(2), 209–224. https://doi.org/10.1016/S0148-2963(01)00303-4
 - Steenkamp, J.-B. E. M., & Baumgartner, H. (1998). Assessing measurement invariance in cross-national consumer research. *Journal of Consumer Research, 25*(1), 78–90. https://doi.org/10.1086/209528
 
-These sources support keeping brand knowledge, associations, trust, loyalty, quality, uniqueness, and other constructs conceptually distinct and measurement-dependent. TrackSignal does not reproduce any proprietary scale items from them.
+These sources support keeping brand knowledge, associations, trust, loyalty, quality, uniqueness, and other constructs conceptually distinct and measurement-dependent. Track Signal does not reproduce any proprietary scale items from them.
 
 ## Statistical literature
 

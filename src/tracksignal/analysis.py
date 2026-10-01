@@ -358,7 +358,7 @@ def compare_groups(
     if undeclared_threshold_rows:
         warnings.append(
             f"{undeclared_threshold_rows} contrast rows have no declared positive practical threshold. Without a "
-            "threshold TrackSignal can only report statistical detection (“DETECTED — NO PRACTICAL THRESHOLD "
+            "threshold Track Signal can only report statistical detection (“DETECTED — NO PRACTICAL THRESHOLD "
             "DECLARED”); it cannot judge whether a detected change is large enough to matter."
         )
     if paired_rows:

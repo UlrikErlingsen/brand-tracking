@@ -1,4 +1,4 @@
-"""Regenerate TrackSignal's deterministic fictional examples."""
+"""Regenerate Track Signal's deterministic fictional examples."""
 
 from __future__ import annotations
 
