@@ -6,7 +6,7 @@ authors:
   - family-names: Erlingsen
     given-names: Ulrik
 version: 1.1.0
-date-released: 2026-10-01
+date-released: 2026-10-02
 license: AGPL-3.0-or-later
 repository-code: "https://github.com/UlrikErlingsen/brand-tracking"
 abstract: "An open, local-first application for separate brand-tracking estimates and uncertainty-aware wave, brand, and segment contrasts."
