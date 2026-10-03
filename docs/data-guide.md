@@ -6,7 +6,7 @@ Use one row per respondent × wave × segment × brand × metric. A respondent m
 
 ## File size and format
 
-CSV and XLSX files up to 1,000 MB and 20,000,000 rows are accepted when the app runs locally (`TRACKSIGNAL_MAX_UPLOAD_MB` changes the launcher limit; Docker uses `STREAMLIT_SERVER_MAX_UPLOAD_SIZE`). Every row is used: estimates and contrasts aggregate per cell rather than sampling. An XLSX sheet holds at most 1,048,576 rows and parses far more slowly than CSV, so export large trackers as CSV. Inside Signal Hub the public demo accepts files up to 50 MB.
+Run locally, Track Signal has no built-in limit on file size, rows, or columns; memory is the limit (Streamlit's uploader takes 10,000 MB by default: `TRACKSIGNAL_MAX_UPLOAD_MB` changes the launcher setting, Docker uses `STREAMLIT_SERVER_MAX_UPLOAD_SIZE`). Every row is used: estimates and contrasts aggregate per cell rather than sampling. An XLSX sheet holds at most 1,048,576 rows and parses far more slowly than CSV, so export large trackers as CSV. The public demo (`SIGNAL_PUBLIC=1`) accepts files up to 50 MB and 500,000 rows; the downloaded app has no such limit.
 
 ## Column roles
 
