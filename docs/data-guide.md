@@ -4,6 +4,10 @@
 
 Use one row per respondent × wave × segment × brand × metric. A respondent may evaluate several brands and metrics in a wave. The exact key must remain unique; Track Signal will not silently average repeated records.
 
+## File size and format
+
+CSV and XLSX files up to 1,000 MB and 20,000,000 rows are accepted when the app runs locally (`TRACKSIGNAL_MAX_UPLOAD_MB` changes the launcher limit; Docker uses `STREAMLIT_SERVER_MAX_UPLOAD_SIZE`). Every row is used: estimates and contrasts aggregate per cell rather than sampling. An XLSX sheet holds at most 1,048,576 rows and parses far more slowly than CSV, so export large trackers as CSV. Inside Signal Hub the public demo accepts files up to 50 MB.
+
 ## Column roles
 
 | Role | Required | Meaning |
