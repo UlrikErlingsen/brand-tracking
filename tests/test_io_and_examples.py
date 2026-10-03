@@ -5,21 +5,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
-import tracksignal.io as tracksignal_io
+from tracksignal import limits
 from tracksignal.analysis import summarize_tracking
 from tracksignal.design import TrackingContract, validate_tracking_data
-from tracksignal.errors import DataProblem
+from tracksignal.errors import DataProblem, friendly_message
 from tracksignal.examples import make_demo_data, make_starter_template
-from tracksignal.io import (
-    MAX_EXPANDED_WORKBOOK_BYTES,
-    MAX_TABLE_COLUMNS,
-    MAX_TABLE_ROWS,
-    MAX_UPLOAD_BYTES,
-    MAX_UPLOAD_MB,
-    build_evidence_workbook,
-    dataframe_csv_bytes,
-    read_table,
-)
+from tracksignal.io import build_evidence_workbook, dataframe_csv_bytes, read_table
 
 
 ROOT = Path(__file__).parents[1]
@@ -71,46 +62,63 @@ def test_evidence_workbook_contains_auditable_sheets() -> None:
 
 
 class _OversizedPayload(bytes):
-    """Reports a length just over the upload cap without allocating a gigabyte in the test."""
+    """Reports a length just over the demo upload cap without allocating it in the test."""
 
     def __len__(self) -> int:
-        return MAX_UPLOAD_BYTES + 1
+        return limits.DEMO_MAX_UPLOAD_MB * 1024 * 1024 + 1
 
 
-def test_upload_limits_follow_the_large_data_policy() -> None:
-    assert MAX_UPLOAD_MB == 1000
-    assert MAX_UPLOAD_BYTES == 1000 * 1024 * 1024
-    assert MAX_EXPANDED_WORKBOOK_BYTES >= MAX_UPLOAD_BYTES
-    assert MAX_TABLE_ROWS >= 5_000_000
+def _wide_csv(columns: int) -> bytes:
+    return pd.DataFrame([[1] * columns], columns=[f"c{i}" for i in range(columns)]).to_csv(index=False).encode()
 
 
-def test_upload_size_row_and_column_caps_are_enforced(monkeypatch: pytest.MonkeyPatch) -> None:
-    with pytest.raises(DataProblem, match="empty"):
-        read_table("tracker.csv", b"")
-    with pytest.raises(DataProblem, match="limited to 1,000 MB"):
-        read_table("tracker.csv", _OversizedPayload(b"x"))
-    wide = pd.DataFrame([[1] * (MAX_TABLE_COLUMNS + 1)], columns=[f"c{i}" for i in range(MAX_TABLE_COLUMNS + 1)])
-    with pytest.raises(DataProblem, match="column safety limit"):
-        read_table("tracker.csv", wide.to_csv(index=False).encode())
-    monkeypatch.setattr(tracksignal_io, "MAX_TABLE_ROWS", 3)
-    tall = make_demo_data().head(4)
-    with pytest.raises(DataProblem, match="3-row safety limit"):
-        read_table("tracker.csv", tall.to_csv(index=False).encode())
-
-
-def test_workbook_expansion_cap_is_enforced(monkeypatch: pytest.MonkeyPatch) -> None:
-    small = BytesIO()
-    make_starter_template().to_excel(small, index=False)
+def _big_workbook() -> bytes:
     large = BytesIO()
     pd.DataFrame({"note": [f"{row:06d}" + "a" * 200 for row in range(6000)]}).to_excel(large, index=False)
-    monkeypatch.setattr(tracksignal_io, "MAX_EXPANDED_WORKBOOK_BYTES", 1024 * 1024)
-    with pytest.raises(DataProblem, match="workbook expands beyond 1 MB"):
-        read_table("tracker.xlsx", large.getvalue())
+    return large.getvalue()
+
+
+def test_local_mode_has_no_limits(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("SIGNAL_PUBLIC", raising=False)
+    assert not limits.is_public()
+    assert limits.max_upload_bytes() is None
+    assert limits.max_expanded_workbook_bytes() is None
+    assert limits.max_table_rows() is None
+    assert limits.max_table_columns() is None
+    with pytest.raises(DataProblem, match="empty"):
+        read_table("tracker.csv", b"")
+    # Beyond every demo cap: more columns, more rows, a bigger workbook, and a payload reported as oversized.
+    assert len(read_table("tracker.csv", _wide_csv(limits.DEMO_MAX_TABLE_COLUMNS + 1)).columns) == 201
+    monkeypatch.setattr(limits, "DEMO_MAX_TABLE_ROWS", 3)
+    monkeypatch.setattr(limits, "DEMO_MAX_EXPANDED_WORKBOOK_MB", 1)
+    assert len(read_table("tracker.csv", make_demo_data().head(4).to_csv(index=False).encode())) == 4
+    assert len(read_table("tracker.xlsx", _big_workbook())) == 6000
+    assert len(read_table("tracker.csv", _OversizedPayload(b"a,b\n1,2\n"))) == 1  # reported size is not capped
+
+
+def test_public_demo_enforces_its_caps(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SIGNAL_PUBLIC", "1")
+    with pytest.raises(DataProblem, match="limited to 50 MB here.*downloaded app has no such limit"):
+        read_table("tracker.csv", _OversizedPayload(b"x"))
+    with pytest.raises(DataProblem, match="limited to 200 columns here"):
+        read_table("tracker.csv", _wide_csv(limits.DEMO_MAX_TABLE_COLUMNS + 1))
+    monkeypatch.setattr(limits, "DEMO_MAX_TABLE_ROWS", 3)
+    with pytest.raises(DataProblem, match="limited to 3 rows here"):
+        read_table("tracker.csv", make_demo_data().head(4).to_csv(index=False).encode())
+    monkeypatch.setattr(limits, "DEMO_MAX_EXPANDED_WORKBOOK_MB", 1)
+    with pytest.raises(DataProblem, match="expand to at most 1 MB here"):
+        read_table("tracker.xlsx", _big_workbook())
+    small = BytesIO()
+    make_starter_template().to_excel(small, index=False)
     assert len(read_table("tracker.xlsx", small.getvalue())) == len(make_starter_template())
 
 
+def test_memory_errors_become_a_plain_message() -> None:
+    assert "not enough memory" in friendly_message(MemoryError())
+
+
 def test_a_tracker_above_the_old_row_cap_reads_and_validates() -> None:
-    """The 1.1 release refused anything over 500,000 rows; that file now passes import and validation."""
+    """The 1.1 release refused anything over 500,000 rows; locally that file now passes import and validation."""
     rows = 520_000
     per_respondent = 4 * 5  # brands x metrics
     respondents = rows // per_respondent

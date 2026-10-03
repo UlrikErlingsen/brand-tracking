@@ -11,19 +11,13 @@ import zipfile
 import defusedxml
 import pandas as pd
 
+from . import limits
 from .errors import DataProblem
 
 defusedxml.defuse_stdlib()
 
-# One upload cap for the whole app, matching `maxUploadSize = 1000` in .streamlit/config.toml and the launchers'
-# TRACKSIGNAL_MAX_UPLOAD_MB default. Signal Hub keeps its public demo at 50 MB on its own server setting.
-MAX_UPLOAD_MB = 1000
-MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
-# Zip-bomb guard for XLSX: sheet XML compresses well, so the expanded limit is a multiple of the upload cap.
-MAX_EXPANDED_WORKBOOK_BYTES = 5 * MAX_UPLOAD_BYTES
-# Validation, estimates and contrasts are vectorized or aggregate per cell, so millions of long-format rows work.
-MAX_TABLE_ROWS = 20_000_000
-MAX_TABLE_COLUMNS = 200
+# Run locally there are no size limits (validation, estimates and contrasts are vectorized or aggregate per cell);
+# a public demo (SIGNAL_PUBLIC=1) applies the caps in limits.py.
 # Text columns are detected on this many leading rows and then parsed straight into categories, so a file with
 # millions of repeated wave, brand and metric labels does not hold one Python string per cell.
 _TYPE_SAMPLE_ROWS = 10_000
@@ -61,33 +55,33 @@ def read_table(filename: str, payload: bytes) -> pd.DataFrame:
     suffix = Path(filename).suffix.lower()
     if not payload:
         raise DataProblem("This file is empty.")
-    if len(payload) > MAX_UPLOAD_BYTES:
-        raise DataProblem(
-            f"Uploads are limited to {MAX_UPLOAD_MB:,} MB. Reduce the tracker to the needed columns and waves, "
-            "or split it by wave."
-        )
+    if limits.exceeds(len(payload), limits.max_upload_bytes()):
+        raise DataProblem(limits.demo_message(f"Uploads are limited to {limits.DEMO_MAX_UPLOAD_MB} MB here."))
     try:
         if suffix == ".csv":
             frame = _read_csv(payload)
         elif suffix == ".xlsx":
             with zipfile.ZipFile(BytesIO(payload)) as workbook_zip:
                 expanded = sum(member.file_size for member in workbook_zip.infolist())
-            if expanded > MAX_EXPANDED_WORKBOOK_BYTES:
+            if limits.exceeds(expanded, limits.max_expanded_workbook_bytes()):
                 raise DataProblem(
-                    f"This workbook expands beyond {MAX_EXPANDED_WORKBOOK_BYTES // (1024 * 1024):,} MB. "
-                    "Remove unrelated sheets, or save the tracker as CSV."
+                    limits.demo_message(
+                        f"Workbooks may expand to at most {limits.DEMO_MAX_EXPANDED_WORKBOOK_MB} MB here."
+                    )
                 )
             frame = pd.read_excel(BytesIO(payload), sheet_name=0)
         else:
             raise DataProblem("Upload a CSV or XLSX file.")
     except DataProblem:
         raise
+    except MemoryError as exc:
+        raise DataProblem(limits.MEMORY_MESSAGE) from exc
     except Exception as exc:  # pragma: no cover - parser messages differ by dependency version
         raise DataProblem(f"Could not read {filename}: {exc}") from exc
-    if len(frame) > MAX_TABLE_ROWS:
-        raise DataProblem(f"The table exceeds the {MAX_TABLE_ROWS:,}-row safety limit; sample or split the tracker.")
-    if len(frame.columns) > MAX_TABLE_COLUMNS:
-        raise DataProblem(f"The table exceeds the {MAX_TABLE_COLUMNS}-column safety limit; keep the needed columns.")
+    if limits.exceeds(len(frame), limits.max_table_rows()):
+        raise DataProblem(limits.demo_message(f"Trackers are limited to {limits.DEMO_MAX_TABLE_ROWS:,} rows here."))
+    if limits.exceeds(len(frame.columns), limits.max_table_columns()):
+        raise DataProblem(limits.demo_message(f"Trackers are limited to {limits.DEMO_MAX_TABLE_COLUMNS} columns here."))
     return frame
 
 
