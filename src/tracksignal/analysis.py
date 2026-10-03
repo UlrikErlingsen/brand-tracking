@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .design import label_mask
 from .errors import DataProblem
 
 
@@ -55,27 +56,83 @@ def _wilson_interval(proportion: float, n: float, alpha: float) -> tuple[float, 
     return max(0.0, center - radius), min(1.0, center + radius)
 
 
-def _estimate_interval(group: pd.DataFrame, alpha: float) -> dict[str, object]:
-    metric_kind = str(group["metric_kind"].iloc[0])
-    weighted = not np.allclose(group["weight"].to_numpy(float), 1.0)
-    values = _weighted_stats(group["value"], group["weight"])
-    estimate = float(values["estimate"])
-    effective_n = float(values["effective_n"])
-    if metric_kind == "binary":
-        low, high = _wilson_interval(estimate, effective_n, alpha)
-        method = "Kish-adjusted Wilson score" if weighted else "Wilson score"
-    else:
+def _summary_frame(frame: pd.DataFrame, group_columns: list[str], alpha: float) -> pd.DataFrame:
+    """Vectorized per-cell estimates; numerically the same statistics as ``_weighted_stats`` per group.
+
+    Large trackers have thousands of cells and millions of rows, so the per-cell sums are accumulated with one
+    pass over integer group codes instead of a Python loop over groups.
+    """
+    grouped = frame.groupby(group_columns, observed=True, sort=True)
+    keys = grouped.size().index.to_frame(index=False)
+    group_count = len(keys)
+    group_ids = grouped.ngroup().to_numpy()
+    keyed = ~pd.isna(group_ids)
+    ids = group_ids[keyed].astype(np.int64)
+
+    x = pd.to_numeric(frame["value"], errors="coerce").to_numpy(float)[keyed]
+    w = pd.to_numeric(frame["weight"], errors="coerce").to_numpy(float)[keyed]
+    valid = np.isfinite(x) & np.isfinite(w) & (w > 0)
+    wv = np.where(valid, w, 0.0)
+    xv = np.where(valid, x, 0.0)
+
+    n = np.bincount(ids, weights=valid.astype(float), minlength=group_count)
+    weight_sum = np.bincount(ids, weights=wv, minlength=group_count)
+    weight_sq_sum = np.bincount(ids, weights=wv * wv, minlength=group_count)
+    weighted_x = np.bincount(ids, weights=wv * xv, minlength=group_count)
+    has_rows = n > 0
+    with np.errstate(divide="ignore", invalid="ignore"):
+        estimate = np.where(has_rows, weighted_x / weight_sum, np.nan)
+        squared_dev = np.bincount(ids, weights=wv * np.square(xv - np.nan_to_num(estimate)[ids]), minlength=group_count)
+        effective_n = np.where(has_rows, np.square(weight_sum) / weight_sq_sum, 0.0)
+        denominator = weight_sum - weight_sq_sum / weight_sum
+        variance = np.where(has_rows & (denominator > 0), squared_dev / denominator, np.nan)
+        se = np.where((effective_n > 1) & np.isfinite(variance), np.sqrt(variance / effective_n), np.nan)
+
+    # np.allclose(weights, 1.0) per group: every |w - 1| <= 1e-8 + 1e-5; a nonfinite weight counts as weighted.
+    all_weights = pd.to_numeric(frame["weight"], errors="coerce").to_numpy(float)[keyed]
+    deviation = np.where(np.isfinite(all_weights), np.abs(all_weights - 1.0), np.inf)
+    max_deviation = pd.Series(deviation).groupby(ids).max().reindex(range(group_count), fill_value=0.0).to_numpy()
+    weighted = max_deviation > 1e-8 + 1e-5
+
+    kinds = keys["metric_kind"].astype(str).to_numpy()
+    binary = kinds == "binary"
+    z = float(stats.norm.ppf(1 - alpha / 2))
+    with np.errstate(divide="ignore", invalid="ignore"):
+        wilson_ok = np.isfinite(estimate) & (effective_n > 0)
+        denom = 1 + z * z / effective_n
+        center = (estimate + z * z / (2 * effective_n)) / denom
+        radius = z / denom * np.sqrt(
+            np.maximum(estimate * (1 - estimate) / effective_n + z * z / (4 * effective_n * effective_n), 0)
+        )
+        wilson_low = np.where(wilson_ok, np.maximum(0.0, center - radius), np.nan)
+        wilson_high = np.where(wilson_ok, np.minimum(1.0, center + radius), np.nan)
         df = effective_n - 1
-        critical = float(stats.t.ppf(1 - alpha / 2, df)) if df > 0 else np.nan
-        low = estimate - critical * float(values["se"]) if np.isfinite(critical) else np.nan
-        high = estimate + critical * float(values["se"]) if np.isfinite(critical) else np.nan
-        method = "weighted t interval (Kish n)" if weighted else "t interval"
-    return {
-        **values,
-        "ci_low": low,
-        "ci_high": high,
-        "interval_method": method,
-    }
+        critical = np.full(group_count, np.nan)
+        positive_df = df > 0
+        critical[positive_df] = stats.t.ppf(1 - alpha / 2, df[positive_df])
+        t_low = estimate - critical * se
+        t_high = estimate + critical * se
+    ci_low = np.where(binary, wilson_low, t_low)
+    ci_high = np.where(binary, wilson_high, t_high)
+    method = np.where(
+        binary,
+        np.where(weighted, "Kish-adjusted Wilson score", "Wilson score"),
+        np.where(weighted, "weighted t interval (Kish n)", "t interval"),
+    )
+
+    estimates = keys[group_columns].copy()
+    for column in group_columns:
+        estimates[column] = estimates[column].astype(object)
+    estimates["estimate"] = estimate
+    estimates["se"] = se
+    estimates["n"] = n.astype(np.int64)
+    estimates["effective_n"] = effective_n
+    estimates["variance"] = variance
+    estimates["ci_low"] = ci_low
+    estimates["ci_high"] = ci_high
+    estimates["interval_method"] = method.astype(object)
+    estimates["confidence_level"] = 1 - alpha
+    return estimates
 
 
 def summarize_tracking(frame: pd.DataFrame, *, alpha: float = 0.05) -> SummaryResult:
@@ -86,14 +143,8 @@ def summarize_tracking(frame: pd.DataFrame, *, alpha: float = 0.05) -> SummaryRe
     missing = sorted(required - set(frame.columns))
     if missing:
         raise DataProblem("Validated tracking data are missing: " + ", ".join(missing))
-    rows: list[dict[str, object]] = []
     group_columns = ["wave", "segment", "brand", "family", "metric", "metric_kind"]
-    for keys, group in frame.groupby(group_columns, observed=True, sort=True):
-        row = dict(zip(group_columns, keys, strict=True))
-        row.update(_estimate_interval(group, alpha))
-        row["confidence_level"] = 1 - alpha
-        rows.append(row)
-    estimates = pd.DataFrame(rows)
+    estimates = _summary_frame(frame, group_columns, alpha)
     warnings = (
         "Intervals quantify sampling uncertainty under the declared sampling approximation; they do not cover measurement error, nonresponse bias, questionnaire changes, or causal identification.",
         "Binary estimates are proportions. Rating and construct estimates retain their original response scale.",
@@ -236,6 +287,10 @@ def _paired_contrast(left: pd.DataFrame, right: pd.DataFrame, kind: str, alpha: 
     }
 
 
+def _cell_key(key: object) -> tuple[object, ...]:
+    return tuple(key) if isinstance(key, tuple) else (key,)
+
+
 def compare_groups(
     frame: pd.DataFrame,
     *,
@@ -267,9 +322,8 @@ def compare_groups(
     if missing:
         raise DataProblem("Validated tracking data are missing: " + ", ".join(missing))
 
-    labels = frame[dimension].astype(str)
-    left_all = frame.loc[labels.eq(str(reference))]
-    right_all = frame.loc[labels.eq(str(comparison))]
+    left_all = frame.loc[label_mask(frame[dimension], reference)]
+    right_all = frame.loc[label_mask(frame[dimension], comparison)]
     if left_all.empty or right_all.empty:
         raise DataProblem("Both declared comparison groups need usable rows.")
 
@@ -277,14 +331,14 @@ def compare_groups(
     pairing_withheld_for_weights = 0
     overlap_without_confirmation = 0
     combined_keys = pd.concat([left_all[list(by)], right_all[list(by)]], ignore_index=True).drop_duplicates()
+    # Split each side once instead of filtering the whole group for every contrast cell (large trackers).
+    left_cells = {_cell_key(key): cell for key, cell in left_all.groupby(list(by), observed=True, sort=False)}
+    right_cells = {_cell_key(key): cell for key, cell in right_all.groupby(list(by), observed=True, sort=False)}
     for key_values in combined_keys.itertuples(index=False, name=None):
         keys = (key_values,) if len(by) == 1 and not isinstance(key_values, tuple) else tuple(key_values)
-        left = left_all
-        right = right_all
-        for column, value in zip(by, keys, strict=True):
-            left = left.loc[left[column].eq(value)]
-            right = right.loc[right[column].eq(value)]
-        if left.empty or right.empty:
+        left = left_cells.get(_cell_key(keys))
+        right = right_cells.get(_cell_key(keys))
+        if left is None or right is None or left.empty or right.empty:
             continue
         if left["metric_kind"].nunique() != 1 or right["metric_kind"].nunique() != 1:
             raise DataProblem("Each contrast cell must contain one metric kind.")

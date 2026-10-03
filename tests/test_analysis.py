@@ -333,3 +333,29 @@ def test_bh_values_are_monotone_and_bounded() -> None:
     assert result.contrasts["q_value_bh"].dropna().between(0, 1).all()
     ordered = result.contrasts.dropna(subset=["p_value", "q_value_bh"]).sort_values("p_value")
     assert np.all(np.diff(ordered["q_value_bh"]) >= -1e-12)
+
+
+def test_vectorized_summary_matches_the_per_cell_formulas_on_categorical_and_text_labels() -> None:
+    """Validated labels are categorical (compact for large files); results must not depend on that storage."""
+    from tracksignal.analysis import _weighted_stats
+
+    cleaned = _clean(make_demo_data(respondents_per_wave=40))
+    assert isinstance(cleaned["brand"].dtype, pd.CategoricalDtype)
+    as_text = cleaned.astype({column: object for column in cleaned.select_dtypes("category").columns})
+    categorical = summarize_tracking(cleaned).estimates
+    text = summarize_tracking(as_text).estimates
+    pd.testing.assert_frame_equal(categorical, text)
+    keys = ["wave", "segment", "brand", "family", "metric", "metric_kind"]
+    for _, row in categorical.sample(25, random_state=1).iterrows():
+        cell = as_text.loc[(as_text[keys] == row[keys].to_numpy()).all(axis=1)]
+        expected = _weighted_stats(cell["value"], cell["weight"])
+        assert row["estimate"] == pytest.approx(expected["estimate"], rel=1e-12)
+        assert row["se"] == pytest.approx(expected["se"], rel=1e-9)
+        assert row["effective_n"] == pytest.approx(expected["effective_n"], rel=1e-12)
+        assert row["n"] == expected["n"]
+    wave_labels = sorted(cleaned["wave"].astype(str).unique())
+    contrast_cat = compare_groups(cleaned, dimension="wave", reference=wave_labels[0], comparison=wave_labels[-1], by=("brand", "metric"))
+    contrast_text = compare_groups(as_text, dimension="wave", reference=wave_labels[0], comparison=wave_labels[-1], by=("brand", "metric"))
+    pd.testing.assert_frame_equal(
+        contrast_cat.contrasts.astype({"brand": object, "metric": object}), contrast_text.contrasts, check_dtype=False
+    )

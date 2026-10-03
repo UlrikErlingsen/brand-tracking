@@ -17,10 +17,10 @@ import streamlit as st
 
 from tracksignal import __version__
 from tracksignal.analysis import compare_groups, summarize_tracking
-from tracksignal.design import TrackingContract, order_labels, validate_tracking_data
+from tracksignal.design import TrackingContract, label_mask, order_labels, validate_tracking_data
 from tracksignal.errors import DataProblem, friendly_message
 from tracksignal.examples import make_demo_data, make_starter_template
-from tracksignal.io import build_evidence_workbook, dataframe_csv_bytes, read_table
+from tracksignal.io import MAX_TABLE_ROWS, MAX_UPLOAD_MB, build_evidence_workbook, dataframe_csv_bytes, read_table
 from tracksignal.ui import signal_theme as sig
 
 
@@ -113,8 +113,21 @@ def _scope_data(frame: pd.DataFrame, *, wave: str | None = None, segment: str | 
     scoped = frame
     for column, value in (("wave", wave), ("segment", segment), ("brand", brand)):
         if value is not None:
-            scoped = scoped.loc[scoped[column].astype(str).eq(str(value))]
+            scoped = scoped.loc[label_mask(scoped[column], value)]
     return scoped
+
+
+def _upload_limit_note() -> str:
+    """State the upload cap that actually applies: the server setting (50 MB in Signal Hub) or the app's own cap."""
+    try:
+        server_mb = int(st.get_option("server.maxUploadSize"))
+    except Exception:  # pragma: no cover - option always exists in supported Streamlit versions
+        server_mb = MAX_UPLOAD_MB
+    limit_mb = min(server_mb, MAX_UPLOAD_MB)
+    return (
+        f"Files up to {limit_mb:,} MB and {MAX_TABLE_ROWS:,} rows. CSV is fastest for large trackers; "
+        "an XLSX sheet stops at Excel's 1,048,576 rows."
+    )
 
 
 def page_welcome() -> None:
@@ -185,9 +198,11 @@ def page_data_contract() -> None:
     top_left, top_right = st.columns([1.15, 1])
     with top_left:
         uploaded = st.file_uploader("Upload CSV or XLSX", type=["csv", "xlsx"], key=k("tracker_upload"))
+        st.caption(_upload_limit_note())
         if uploaded is not None and st.button("Read uploaded file", type="primary", key=k("read_upload")):
             try:
-                frame = read_table(uploaded.name, uploaded.getvalue())
+                with st.spinner("Reading the file. Large trackers can take a little while."):
+                    frame = read_table(uploaded.name, uploaded.getvalue())
                 st.session_state[k("candidate_data")] = frame
                 st.success(f"Read {len(frame):,} rows and {len(frame.columns)} columns. Map the roles below.")
             except DataProblem as exc:
@@ -264,7 +279,8 @@ def page_data_contract() -> None:
                 source_column=source,
                 threshold_column=threshold,
             )
-            _validate_and_store(candidate, contract)
+            with st.spinner("Validating the tracking contract."):
+                _validate_and_store(candidate, contract)
             st.success("Tracking contract accepted. Analysis pages now use this validated dataset.")
         except DataProblem as exc:
             show_error(exc)

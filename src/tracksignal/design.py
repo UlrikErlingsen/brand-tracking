@@ -24,7 +24,17 @@ def natural_sort_key(label: object) -> tuple[tuple[int, object], ...]:
 
 def order_labels(series: pd.Series) -> list[str]:
     """Order label values naturally: digit runs compare as numbers, text case-insensitively."""
-    return sorted(series.dropna().astype(str).unique().tolist(), key=natural_sort_key)
+    # Deduplicate before converting to text, so a column with millions of rows converts only its distinct labels.
+    distinct = pd.Series(series.dropna().unique(), dtype=object)
+    return sorted(distinct.astype(str).unique().tolist(), key=natural_sort_key)
+
+
+def label_mask(labels: pd.Series, value: object) -> pd.Series:
+    """Rows whose label equals ``value`` as text, without converting a large categorical column to strings."""
+    if isinstance(labels.dtype, pd.CategoricalDtype):
+        matches = [category for category in labels.cat.categories if str(category) == str(value)]
+        return labels.isin(matches)
+    return labels.astype(str).eq(str(value))
 
 
 @dataclass(frozen=True)
@@ -51,8 +61,40 @@ class TrackingAudit:
     warnings: tuple[str, ...]
 
 
+def _map_labels(series: pd.Series, transform) -> pd.Series:
+    """Apply a text transform once per distinct label and return a categorical column.
+
+    Large trackers repeat a handful of wave, brand and metric labels millions of times. Working on the distinct
+    labels keeps validation fast and the cleaned data compact. Labels that become identical after the transform
+    share one category, and categories are sorted so grouped output keeps its alphabetical order.
+    """
+    if isinstance(series.dtype, pd.CategoricalDtype):
+        codes = series.cat.codes.to_numpy()
+        uniques = pd.Series(series.cat.categories, dtype=object)
+    else:
+        codes, uniques_index = pd.factorize(series, use_na_sentinel=True)
+        uniques = pd.Series(uniques_index, dtype=object)
+    labels = transform(uniques.astype("string"))
+    label_codes, categories = pd.factorize(labels, sort=True, use_na_sentinel=True)
+    mapped = np.full(len(codes), -1, dtype=np.int64)
+    present = codes >= 0
+    mapped[present] = label_codes[codes[present]]
+    categorical = pd.Categorical.from_codes(mapped, categories=pd.Index(categories, dtype=object))
+    return pd.Series(categorical, index=series.index, name=series.name)
+
+
 def _clean_label(series: pd.Series) -> pd.Series:
-    return series.astype("string").str.strip()
+    return _map_labels(series, lambda labels: labels.str.strip())
+
+
+def _clean_note(series: pd.Series) -> pd.Series:
+    """Strip an optional note column; a missing note becomes an empty string."""
+    cleaned = _clean_label(series)
+    if cleaned.isna().any():
+        if "" not in cleaned.cat.categories:
+            cleaned = cleaned.cat.add_categories([""])
+        cleaned = cleaned.fillna("")
+    return cleaned
 
 
 def _selected_columns(contract: TrackingContract) -> dict[str, str]:
@@ -87,7 +129,7 @@ def validate_tracking_data(frame: pd.DataFrame, contract: TrackingContract) -> T
     if missing:
         raise DataProblem("These selected columns are missing: " + ", ".join(missing))
 
-    clean = frame[source_columns].rename(columns={value: key for key, value in mapping.items()}).copy()
+    clean = frame[source_columns].rename(columns={value: key for key, value in mapping.items()})
     if "segment" not in clean:
         clean["segment"] = "All respondents"
     if "weight" not in clean:
@@ -104,7 +146,7 @@ def validate_tracking_data(frame: pd.DataFrame, contract: TrackingContract) -> T
     label_columns = ["respondent_id", "wave", "segment", "brand", "metric", "metric_kind", "family"]
     for column in label_columns:
         clean[column] = _clean_label(clean[column])
-    clean["measurement_source"] = clean["measurement_source"].fillna("").astype(str).str.strip()
+    clean["measurement_source"] = _clean_note(clean["measurement_source"])
     clean["value"] = pd.to_numeric(clean["value"], errors="coerce")
     clean["weight"] = pd.to_numeric(clean["weight"], errors="coerce")
     clean["practical_threshold"] = pd.to_numeric(clean["practical_threshold"], errors="coerce")
@@ -135,8 +177,8 @@ def validate_tracking_data(frame: pd.DataFrame, contract: TrackingContract) -> T
             f"The mapped practical-threshold column '{contract.threshold_column}' contains no numeric values."
         )
 
-    kinds = clean["metric_kind"].str.lower()
-    unsupported = sorted(set(kinds) - set(METRIC_KINDS))
+    kinds = _map_labels(clean["metric_kind"], lambda labels: labels.str.lower())
+    unsupported = sorted(set(kinds.dropna().unique().tolist()) - set(METRIC_KINDS))
     if unsupported:
         raise DataProblem("Metric kind must be binary, rating, or construct; unsupported: " + ", ".join(unsupported))
     clean["metric_kind"] = kinds
@@ -155,12 +197,18 @@ def validate_tracking_data(frame: pd.DataFrame, contract: TrackingContract) -> T
         bad_metrics = sorted(clean.loc[invalid_binary, "metric"].unique().tolist())
         raise DataProblem("Binary metrics must contain only 0 and 1: " + ", ".join(bad_metrics))
 
-    construct_metrics = sorted(clean.loc[clean["metric_kind"].eq("construct"), "metric"].unique().tolist())
-    missing_construct_sources = [
-        metric
-        for metric in construct_metrics
-        if not clean.loc[clean["metric"].eq(metric), "measurement_source"].str.strip().ne("").all()
-    ]
+    construct_rows = clean["metric_kind"].eq("construct")
+    construct_metrics = sorted(clean.loc[construct_rows, "metric"].unique().tolist())
+    missing_construct_sources: list[str] = []
+    if construct_metrics:
+        # measurement_source is already stripped; each metric has one stable kind (checked above).
+        sourced = (
+            clean.loc[construct_rows, "measurement_source"]
+            .ne("")
+            .groupby(clean.loc[construct_rows, "metric"], observed=True)
+            .all()
+        )
+        missing_construct_sources = [metric for metric in construct_metrics if not bool(sourced.get(metric, False))]
     if missing_construct_sources:
         raise DataProblem(
             "Construct scores require a measurement-evidence reference from Measure Signal or another documented "
@@ -191,9 +239,9 @@ def validate_tracking_data(frame: pd.DataFrame, contract: TrackingContract) -> T
         metrics = source_counts.index[source_counts > 1].astype(str).tolist()
         raise DataProblem("Each metric needs one stable measurement-source note: " + ", ".join(metrics))
 
+    # Kind, family, threshold and source are stable per metric (checked above), so one row per metric suffices.
     metric_catalog = (
-        clean[["metric", "family", "metric_kind", "practical_threshold", "measurement_source"]]
-        .drop_duplicates()
+        clean.drop_duplicates("metric")[["metric", "family", "metric_kind", "practical_threshold", "measurement_source"]]
         .sort_values(["family", "metric"], key=lambda values: values.astype(str).str.casefold())
         .reset_index(drop=True)
     )

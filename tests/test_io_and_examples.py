@@ -1,14 +1,21 @@
 from io import BytesIO
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 
+import tracksignal.io as tracksignal_io
+from tracksignal.analysis import summarize_tracking
+from tracksignal.design import TrackingContract, validate_tracking_data
 from tracksignal.errors import DataProblem
 from tracksignal.examples import make_demo_data, make_starter_template
 from tracksignal.io import (
+    MAX_EXPANDED_WORKBOOK_BYTES,
     MAX_TABLE_COLUMNS,
+    MAX_TABLE_ROWS,
     MAX_UPLOAD_BYTES,
+    MAX_UPLOAD_MB,
     build_evidence_workbook,
     dataframe_csv_bytes,
     read_table,
@@ -41,6 +48,9 @@ def test_csv_and_xlsx_readers_round_trip() -> None:
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         frame.to_excel(writer, index=False)
     xlsx_loaded = read_table("tracker.xlsx", output.getvalue())
+    # CSV text columns arrive as categories (compact for large trackers); the values are unchanged.
+    assert all(isinstance(dtype, pd.CategoricalDtype) for dtype in csv_loaded.select_dtypes(exclude="number").dtypes)
+    csv_loaded = csv_loaded.astype({column: object for column in csv_loaded.select_dtypes("category").columns})
     pd.testing.assert_frame_equal(csv_loaded, frame, check_dtype=False)
     pd.testing.assert_frame_equal(xlsx_loaded, frame, check_dtype=False)
 
@@ -60,14 +70,80 @@ def test_evidence_workbook_contains_auditable_sheets() -> None:
     assert set(metadata["field"]) == {"app", "boundary"}
 
 
-def test_upload_size_row_and_column_caps_are_enforced() -> None:
+class _OversizedPayload(bytes):
+    """Reports a length just over the upload cap without allocating a gigabyte in the test."""
+
+    def __len__(self) -> int:
+        return MAX_UPLOAD_BYTES + 1
+
+
+def test_upload_limits_follow_the_large_data_policy() -> None:
+    assert MAX_UPLOAD_MB == 1000
+    assert MAX_UPLOAD_BYTES == 1000 * 1024 * 1024
+    assert MAX_EXPANDED_WORKBOOK_BYTES >= MAX_UPLOAD_BYTES
+    assert MAX_TABLE_ROWS >= 5_000_000
+
+
+def test_upload_size_row_and_column_caps_are_enforced(monkeypatch: pytest.MonkeyPatch) -> None:
     with pytest.raises(DataProblem, match="empty"):
         read_table("tracker.csv", b"")
-    with pytest.raises(DataProblem, match="50 MB"):
-        read_table("tracker.csv", b"x" * (MAX_UPLOAD_BYTES + 1))
+    with pytest.raises(DataProblem, match="limited to 1,000 MB"):
+        read_table("tracker.csv", _OversizedPayload(b"x"))
     wide = pd.DataFrame([[1] * (MAX_TABLE_COLUMNS + 1)], columns=[f"c{i}" for i in range(MAX_TABLE_COLUMNS + 1)])
     with pytest.raises(DataProblem, match="column safety limit"):
         read_table("tracker.csv", wide.to_csv(index=False).encode())
+    monkeypatch.setattr(tracksignal_io, "MAX_TABLE_ROWS", 3)
+    tall = make_demo_data().head(4)
+    with pytest.raises(DataProblem, match="3-row safety limit"):
+        read_table("tracker.csv", tall.to_csv(index=False).encode())
+
+
+def test_workbook_expansion_cap_is_enforced(monkeypatch: pytest.MonkeyPatch) -> None:
+    small = BytesIO()
+    make_starter_template().to_excel(small, index=False)
+    large = BytesIO()
+    pd.DataFrame({"note": [f"{row:06d}" + "a" * 200 for row in range(6000)]}).to_excel(large, index=False)
+    monkeypatch.setattr(tracksignal_io, "MAX_EXPANDED_WORKBOOK_BYTES", 1024 * 1024)
+    with pytest.raises(DataProblem, match="workbook expands beyond 1 MB"):
+        read_table("tracker.xlsx", large.getvalue())
+    assert len(read_table("tracker.xlsx", small.getvalue())) == len(make_starter_template())
+
+
+def test_a_tracker_above_the_old_row_cap_reads_and_validates() -> None:
+    """The 1.1 release refused anything over 500,000 rows; that file now passes import and validation."""
+    rows = 520_000
+    per_respondent = 4 * 5  # brands x metrics
+    respondents = rows // per_respondent
+    respondent = np.repeat(np.arange(respondents), per_respondent)
+    brand = np.tile(np.repeat(np.arange(4), 5), respondents)
+    metric = np.tile(np.arange(5), respondents * 4)
+    frame = pd.DataFrame(
+        {
+            "respondent_id": respondent,
+            "wave": np.where(respondent % 2 == 0, "W1", "W2"),
+            "brand": np.array(["A", "B", "C", "D"])[brand],
+            "metric": np.array(["m1", "m2", "m3", "m4", "m5"])[metric],
+            "metric_kind": np.where(metric < 3, "binary", "rating"),
+            "value": np.where(metric < 3, (respondent + metric) % 2, (respondent + brand) % 7 + 1),
+        }
+    )
+    payload = frame.to_csv(index=False).encode()
+    loaded = read_table("tracker.csv", payload)
+    assert len(loaded) == rows > 500_000
+    contract = TrackingContract(
+        respondent_column="respondent_id",
+        wave_column="wave",
+        brand_column="brand",
+        metric_column="metric",
+        value_column="value",
+        kind_column="metric_kind",
+    )
+    audit = validate_tracking_data(loaded, contract)
+    assert audit.summary["source_rows"] == rows
+    assert audit.summary["respondents"] == respondents
+    estimates = summarize_tracking(audit.cleaned).estimates
+    assert len(estimates) == 2 * 4 * 5
+    assert int(estimates["n"].sum()) == rows
 
 
 def test_xlsm_and_other_extensions_are_rejected() -> None:
@@ -123,3 +199,10 @@ def test_workbook_export_neutralizes_formula_injection_in_every_sheet() -> None:
     metadata = pd.read_excel(BytesIO(payload), sheet_name="read_me")
     assert ("'" + HOSTILE) in set(metadata["field"])
     assert ("'" + HOSTILE) in set(metadata["value"])
+
+
+def test_exports_neutralize_formulas_in_categorical_columns() -> None:
+    hostile = _hostile_frame().astype({"brand": "category", "note": "category"})
+    reloaded = pd.read_csv(BytesIO(dataframe_csv_bytes(hostile)))
+    assert reloaded["brand"].iloc[0] == "'" + HOSTILE
+    assert reloaded["note"].iloc[0] == "controlchar"
