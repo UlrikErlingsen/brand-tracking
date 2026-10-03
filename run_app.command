@@ -74,7 +74,7 @@ python -m streamlit run app.py \
   --server.headless=true \
   --server.address=127.0.0.1 \
   --server.port="$PORT" \
-  --server.maxUploadSize="${TRACKSIGNAL_MAX_UPLOAD_MB:-1000}" \
+  --server.maxUploadSize="${TRACKSIGNAL_MAX_UPLOAD_MB:-10000}" \
   --server.fileWatcherType=none \
   --browser.gatherUsageStats=false &
 APP_PID=$!

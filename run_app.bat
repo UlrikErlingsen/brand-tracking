@@ -21,7 +21,7 @@ if errorlevel 1 (
   )
 )
 if "%TRACKSIGNAL_PORT%"=="" set TRACKSIGNAL_PORT=8586
-if "%TRACKSIGNAL_MAX_UPLOAD_MB%"=="" set TRACKSIGNAL_MAX_UPLOAD_MB=1000
+if "%TRACKSIGNAL_MAX_UPLOAD_MB%"=="" set TRACKSIGNAL_MAX_UPLOAD_MB=10000
 echo Starting Track Signal at http://127.0.0.1:%TRACKSIGNAL_PORT% ...
 ".venv\Scripts\python.exe" -m streamlit run app.py --server.headless=true --server.address=127.0.0.1 --server.port=%TRACKSIGNAL_PORT% --server.maxUploadSize=%TRACKSIGNAL_MAX_UPLOAD_MB% --server.fileWatcherType=none --browser.gatherUsageStats=false
 if errorlevel 1 pause

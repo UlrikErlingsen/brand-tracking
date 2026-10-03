@@ -93,7 +93,7 @@ def test_runtime_scaffolding_is_private_and_health_checked() -> None:
     workflow = (ROOT / ".github" / "workflows" / "tests.yml").read_text(encoding="utf-8")
 
     assert "gatherUsageStats = false" in config
-    assert "maxUploadSize = 1000" in config
+    assert "maxUploadSize = 10000" in config
     assert 'base = "light"' in config
     assert 'primaryColor = "#b2622d"' in config  # Signal Brand family, 600 step
     assert "USER tracksignal" in dockerfile
@@ -102,11 +102,11 @@ def test_runtime_scaffolding_is_private_and_health_checked() -> None:
     assert "8586" in dockerfile
     assert "--browser.gatherUsageStats=false" in launcher
     assert "TRACKSIGNAL_PORT" in launcher
-    # Large-data tier: 1000 MB by default, overridable per launch; Docker sets it through the environment.
+    # Large-data tier: 10,000 MB by default, overridable per launch; Docker sets it through the environment.
     windows_launcher = (ROOT / "run_app.bat").read_text(encoding="utf-8")
-    assert '--server.maxUploadSize="${TRACKSIGNAL_MAX_UPLOAD_MB:-1000}"' in launcher
-    assert "set TRACKSIGNAL_MAX_UPLOAD_MB=1000" in windows_launcher
+    assert '--server.maxUploadSize="${TRACKSIGNAL_MAX_UPLOAD_MB:-10000}"' in launcher
+    assert "set TRACKSIGNAL_MAX_UPLOAD_MB=10000" in windows_launcher
     assert "--server.maxUploadSize=%TRACKSIGNAL_MAX_UPLOAD_MB%" in windows_launcher
-    assert "STREAMLIT_SERVER_MAX_UPLOAD_SIZE=1000" in dockerfile
+    assert "STREAMLIT_SERVER_MAX_UPLOAD_SIZE=10000" in dockerfile
     assert "--server.maxUploadSize" not in dockerfile
     assert 'python-version: ["3.10", "3.11", "3.12", "3.13"]' in workflow
