@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tracksignal"
-version = "1.1.0"
+version = "1.2.0"
 description = "Track Signal: open, local-first brand tracking with uncertainty-aware comparisons"
 readme = "README.md"
 requires-python = ">=3.10"

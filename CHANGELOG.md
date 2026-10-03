@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.2.0 — 2026-10-03
+
+Larger datasets: Track Signal now handles trackers from large organizations. The statistics, data contract and exports are unchanged; the same data give the same estimates and contrasts.
+
+### Larger datasets
+
+- Upload limit raised from 50 MB to 1,000 MB (one constant, `MAX_UPLOAD_MB`), the row limit from 500,000 to 20,000,000, and the expanded-workbook guard from 200 MB to 5,000 MB. The column limit stays at 200. Error messages state the new limits.
+- `run_app.bat` and `run_app.command` read `TRACKSIGNAL_MAX_UPLOAD_MB` (default 1000) and pass it to `--server.maxUploadSize`; the Dockerfile sets `STREAMLIT_SERVER_MAX_UPLOAD_SIZE=1000` instead of a command-line flag. Signal Hub keeps its public demo at 50 MB, and the upload caption shows the limit that actually applies.
+- CSV text columns are parsed straight into categories, and validated labels are stored as categories, so millions of repeated wave, brand and metric labels no longer hold one Python string per cell.
+- Validation works on distinct labels and grouped checks instead of per-row string conversions; cell estimates are computed in one vectorized pass instead of a loop over cells; contrasts split each group once instead of filtering for every cell. No step samples the data.
+- Measured on a 5,000,000-row, 490 MB tracker (6,000 cells): read 2.5 s, validate 4.1 s, all estimates 1.1 s, a wave contrast 0.3 s; peak memory 1.1 GB including the uploaded file (1.1.0 needed 21 s to validate, 5.7 s per contrast and 2.6 GB). A compact 20,000,000-row file validates in about 21 s with 3.6 GB peak memory.
+- Reading and validation show a spinner. Exports also neutralize formulas in categorical columns.
+- New tests: a 520,000-row file (over the old cap) reads and validates, the limit messages, the expanded-workbook guard, launcher and Docker settings, and vectorized estimates matching the per-cell formulas on categorical and text labels.
+
+### Suite
+
+- Suite: Rival, Reach, Learn and Blueprint Signal added to the suite table (README and the shared theme), and the local Streamlit upload cap in `.streamlit/config.toml` is 1000 MB.
+
 ## 1.1.0 — 2026-10-02
 
 Signal brand refresh and Signal Hub entry point. The analysis, statistics, data contract and exports are unchanged.
